@@ -164,6 +164,15 @@ polyflex-ntt/
 
 ## 7. Verification & Reproduction Instructions
 
+### Quick Start: Graphical Desktop Workbench (GUI)
+You can launch the integrated **PolyFlex-NTT EDA Control Center** by double-clicking [`Launch_EDA_Workbench.bat`](file:///Launch_EDA_Workbench.bat) or running:
+```cmd
+pythonw gui_app.py
+```
+*(Or double-click the **"PolyFlex NTT - EDA Workbench"** desktop shortcut).*
+This opens a native Windows GUI dashboard where you can trigger mathematical verification, compile Verilog testbenches, run ASIC/FPGA synthesis, and inspect GTKWave waveforms with a single click.
+
+### CLI Instructions
 ### Prerequisites
 - Python 3.8+ (NumPy)
 - Icarus Verilog (`iverilog`) and Yosys (available via OSS CAD Suite or package managers)
