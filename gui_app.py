@@ -1,0 +1,299 @@
+"""
+PolyFlex-NTT EDA Control Center
+Graphical User Interface for Simulation, Synthesis, and Waveform Analysis
+Targeting NIST FIPS 203 (ML-KEM) and FIPS 204 (ML-DSA) Hardware IP Core.
+"""
+
+import sys
+import os
+import subprocess
+import threading
+import tkinter as tk
+from tkinter import ttk, scrolledtext, messagebox
+
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+OSS_CAD_DIR = r"C:\Users\surya\.oss-cad-suite\oss-cad-suite"
+ENV_BAT = os.path.join(OSS_CAD_DIR, "environment.bat")
+
+class PolyFlexEDAApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("PolyFlex-NTT EDA Control Center - Silicon Workbench")
+        self.geometry("980x720")
+        self.minsize(800, 600)
+        self.configure(bg="#1e1e2e")
+
+        self.style = ttk.Style(self)
+        self.style.theme_use("clam")
+        self._configure_styles()
+
+        self._build_header()
+        self._build_main_layout()
+        self._build_status_bar()
+
+        self.log("PolyFlex-NTT EDA Workbench Initialized.")
+        self.log(f"Project Directory : {ROOT_DIR}")
+        self.log(f"OSS CAD Suite Path: {OSS_CAD_DIR}")
+        self.log("Ready for Simulation, Verification, Synthesis, and Waveform Inspection.\n" + "="*80)
+
+    def _configure_styles(self):
+        self.style.configure(".", background="#1e1e2e", foreground="#cdd6f4", font=("Segoe UI", 10))
+        self.style.configure("Header.TLabel", font=("Segoe UI Semibold", 16), foreground="#89b4fa", background="#181825")
+        self.style.configure("SubHeader.TLabel", font=("Segoe UI", 9), foreground="#a6adc8", background="#181825")
+        self.style.configure("Card.TFrame", background="#181825", relief="flat")
+        self.style.configure("Section.TLabel", font=("Segoe UI Semibold", 11), foreground="#f9e2af", background="#181825")
+
+        # Custom buttons
+        self.style.configure("Primary.TButton", font=("Segoe UI Semibold", 10), background="#89b4fa", foreground="#11111b", padding=6)
+        self.style.map("Primary.TButton", background=[("active", "#b4befe")])
+
+        self.style.configure("Green.TButton", font=("Segoe UI Semibold", 10), background="#a6e3a1", foreground="#11111b", padding=6)
+        self.style.map("Green.TButton", background=[("active", "#94e2d5")])
+
+        self.style.configure("Accent.TButton", font=("Segoe UI Semibold", 10), background="#cba6f7", foreground="#11111b", padding=6)
+        self.style.map("Accent.TButton", background=[("active", "#f5c2e7")])
+
+        self.style.configure("Orange.TButton", font=("Segoe UI Semibold", 10), background="#fab387", foreground="#11111b", padding=6)
+        self.style.map("Orange.TButton", background=[("active", "#f9e2af")])
+
+    def _build_header(self):
+        hdr_frame = tk.Frame(self, bg="#181825", padx=20, pady=12)
+        hdr_frame.pack(fill=tk.X, side=tk.TOP)
+
+        title = ttk.Label(hdr_frame, text="PolyFlex-NTT Silicon Engineering Workbench", style="Header.TLabel")
+        title.pack(anchor=tk.W)
+
+        subtitle = ttk.Label(
+            hdr_frame,
+            text="Dual-Mode In-Place Conflict-Free NTT/INTT Accelerator for NIST FIPS 203 (ML-KEM) & FIPS 204 (ML-DSA)",
+            style="SubHeader.TLabel"
+        )
+        subtitle.pack(anchor=tk.W)
+
+    def _build_main_layout(self):
+        container = tk.Frame(self, bg="#1e1e2e", padx=15, pady=10)
+        container.pack(fill=tk.BOTH, expand=True)
+
+        # Left panel: actions / buttons
+        left_panel = tk.Frame(container, bg="#181825", width=340, padx=15, pady=15, relief="ridge", bd=1)
+        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        left_panel.pack_propagate(False)
+
+        # Right panel: output console
+        right_panel = tk.Frame(container, bg="#11111b")
+        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        self._populate_left_panel(left_panel)
+        self._populate_right_panel(right_panel)
+
+    def _populate_left_panel(self, parent):
+        # Section 1: Verification
+        lbl_v = ttk.Label(parent, text="1. Verification & Simulation", style="Section.TLabel")
+        lbl_v.pack(anchor=tk.W, pady=(0, 6))
+
+        btn_py = ttk.Button(
+            parent,
+            text="▶ Run Golden Model (Python)",
+            style="Primary.TButton",
+            command=lambda: self._run_command_threaded(
+                ["python", os.path.join(ROOT_DIR, "sim", "test_accelerator.py")],
+                "Running Mathematical Verification (Python Reference vs Accelerator)..."
+            )
+        )
+        btn_py.pack(fill=tk.X, pady=4)
+
+        btn_tb = ttk.Button(
+            parent,
+            text="▶ Run Verilog Testbench (Icarus)",
+            style="Primary.TButton",
+            command=self._run_icarus_sim
+        )
+        btn_tb.pack(fill=tk.X, pady=4)
+
+        btn_axi = ttk.Button(
+            parent,
+            text="▶ Run AXI4-Lite SoC Testbench",
+            style="Primary.TButton",
+            command=self._run_axi_sim
+        )
+        btn_axi.pack(fill=tk.X, pady=4)
+
+        # Section 2: Waveforms
+        lbl_w = ttk.Label(parent, text="2. Waveform Visualization", style="Section.TLabel")
+        lbl_w.pack(anchor=tk.W, pady=(16, 6))
+
+        btn_wave = ttk.Button(
+            parent,
+            text="📈 Launch GTKWave GUI Viewer",
+            style="Green.TButton",
+            command=self._launch_gtkwave
+        )
+        btn_wave.pack(fill=tk.X, pady=4)
+
+        # Section 3: Synthesis
+        lbl_s = ttk.Label(parent, text="3. Silicon EDA Synthesis", style="Section.TLabel")
+        lbl_s.pack(anchor=tk.W, pady=(16, 6))
+
+        btn_asic = ttk.Button(
+            parent,
+            text="🔬 Run 45nm ASIC Synthesis (Yosys)",
+            style="Accent.TButton",
+            command=self._run_asic_synth
+        )
+        btn_asic.pack(fill=tk.X, pady=4)
+
+        btn_fpga = ttk.Button(
+            parent,
+            text="🧩 Run Artix-7 FPGA Synthesis",
+            style="Orange.TButton",
+            command=self._run_fpga_synth
+        )
+        btn_fpga.pack(fill=tk.X, pady=4)
+
+        # Section 4: Utilities
+        lbl_u = ttk.Label(parent, text="4. Quick Actions", style="Section.TLabel")
+        lbl_u.pack(anchor=tk.W, pady=(16, 6))
+
+        btn_clear = ttk.Button(
+            parent,
+            text="🧹 Clear Console Output",
+            command=self._clear_console
+        )
+        btn_clear.pack(fill=tk.X, pady=4)
+
+    def _populate_right_panel(self, parent):
+        lbl = ttk.Label(parent, text="Execution Logs & Console Output", style="Section.TLabel")
+        lbl.pack(anchor=tk.W, pady=(0, 6))
+
+        self.console = scrolledtext.ScrolledText(
+            parent,
+            bg="#11111b",
+            fg="#cdd6f4",
+            insertbackground="#f5e0dc",
+            font=("Consolas", 10),
+            padx=10,
+            pady=10,
+            wrap=tk.WORD,
+            relief="ridge",
+            bd=1
+        )
+        self.console.pack(fill=tk.BOTH, expand=True)
+
+    def _build_status_bar(self):
+        self.status_bar = tk.Label(
+            self,
+            text="Status: Ready",
+            bg="#11111b",
+            fg="#a6adc8",
+            font=("Segoe UI", 9),
+            anchor=tk.W,
+            padx=15,
+            pady=4
+        )
+        self.status_bar.pack(fill=tk.X, side=tk.BOTTOM)
+
+    def log(self, text):
+        self.console.insert(tk.END, text + "\n")
+        self.console.see(tk.END)
+
+    def _clear_console(self):
+        self.console.delete("1.0", tk.END)
+
+    def _set_status(self, text):
+        self.status_bar.config(text=f"Status: {text}")
+
+    def _run_command_threaded(self, cmd, desc):
+        threading.Thread(target=self._execute_command, args=(cmd, desc), daemon=True).start()
+
+    def _execute_command(self, cmd, desc):
+        self._set_status(desc)
+        self.log(f"\n[EXEC] {desc}")
+        self.log(f"Command: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
+        self.log("-" * 80)
+        try:
+            p = subprocess.Popen(
+                cmd,
+                cwd=ROOT_DIR,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                shell=isinstance(cmd, str)
+            )
+            for line in iter(p.stdout.readline, ''):
+                self.log(line.rstrip())
+            p.stdout.close()
+            p.wait()
+            if p.returncode == 0:
+                self.log(f"[SUCCESS] Command finished with exit code 0.\n")
+                self._set_status("Ready (Last command succeeded)")
+            else:
+                self.log(f"[FAILURE] Command failed with exit code {p.returncode}.\n")
+                self._set_status(f"Error (Exit code {p.returncode})")
+        except Exception as e:
+            self.log(f"[EXCEPTION] Failed to execute: {e}\n")
+            self._set_status("Execution failed")
+
+    def _run_icarus_sim(self):
+        def task():
+            self._set_status("Compiling & running Verilog simulation...")
+            self.log("\n[EXEC] Verilog Hardware Simulation via Icarus Verilog")
+            self.log("-" * 80)
+            compile_cmd = (
+                f'call "{ENV_BAT}" && '
+                f'iverilog -g2012 -o sim\\polyflex_sim.vvp rtl\\polyflex_top.v rtl\\address_generator.v '
+                f'rtl\\ntt_butterfly_unit.v rtl\\modular_multiplier.v rtl\\twiddle_rom.v '
+                f'rtl\\dual_bank_sram.v sim\\tb_polyflex_top.v && '
+                f'vvp sim\\polyflex_sim.vvp'
+            )
+            self._execute_command(compile_cmd, "Running Icarus Verilog Hardware Simulation")
+        threading.Thread(target=task, daemon=True).start()
+
+    def _run_axi_sim(self):
+        def task():
+            self._set_status("Compiling & running AXI4-Lite SoC simulation...")
+            self.log("\n[EXEC] AXI4-Lite SoC Wrapper Simulation via Icarus Verilog")
+            self.log("-" * 80)
+            compile_cmd = (
+                f'call "{ENV_BAT}" && '
+                f'iverilog -g2012 -o sim\\axi_sim.vvp rtl\\polyflex_axi_wrapper.v rtl\\polyflex_top.v '
+                f'rtl\\address_generator.v rtl\\ntt_butterfly_unit.v rtl\\modular_multiplier.v '
+                f'rtl\\twiddle_rom.v rtl\\dual_bank_sram.v sim\\tb_axi_wrapper.v && '
+                f'vvp sim\\axi_sim.vvp'
+            )
+            self._execute_command(compile_cmd, "Running AXI4-Lite SoC Simulation")
+        threading.Thread(target=task, daemon=True).start()
+
+    def _launch_gtkwave(self):
+        vcd_path = os.path.join(ROOT_DIR, "sim", "polyflex_top.vcd")
+        gtkw_path = os.path.join(ROOT_DIR, "sim", "polyflex_top.gtkw")
+        if not os.path.exists(vcd_path):
+            messagebox.showwarning("VCD Not Found", "Waveform file (sim/polyflex_top.vcd) not found.\nPlease run simulation first.")
+            return
+
+        self.log("\n[LAUNCH] Launching GTKWave GUI Waveform Viewer...")
+        bat_cmd = f'call "{ENV_BAT}" && start "" gtkwave "{vcd_path}" "{gtkw_path}"'
+        subprocess.Popen(bat_cmd, cwd=ROOT_DIR, shell=True)
+        self.log(f"[OPEN] GTKWave opened with pre-loaded signals ({gtkw_path}).")
+        self._set_status("GTKWave GUI running")
+
+    def _run_asic_synth(self):
+        def task():
+            self._set_status("Synthesizing for 45nm ASIC via Yosys...")
+            self.log("\n[EXEC] Running 45nm Nangate Standard-Cell Synthesis (Yosys)")
+            self.log("-" * 80)
+            cmd = f'call "{ENV_BAT}" && yosys synth\\run_synth_nangate.ys'
+            self._execute_command(cmd, "ASIC Nangate 45nm Synthesis")
+        threading.Thread(target=task, daemon=True).start()
+
+    def _run_fpga_synth(self):
+        def task():
+            self._set_status("Synthesizing for Artix-7 FPGA via Yosys...")
+            self.log("\n[EXEC] Running Xilinx Artix-7 FPGA Synthesis (Yosys)")
+            self.log("-" * 80)
+            cmd = f'call "{ENV_BAT}" && yosys -p "read_verilog -sv rtl/*.v; synth_xilinx -family xc7 -top polyflex_top; stat"'
+            self._execute_command(cmd, "FPGA Artix-7 Synthesis")
+        threading.Thread(target=task, daemon=True).start()
+
+if __name__ == "__main__":
+    app = PolyFlexEDAApp()
+    app.mainloop()
