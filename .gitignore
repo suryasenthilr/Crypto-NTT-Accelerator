@@ -1,0 +1,17 @@
+# Simulation binaries & Waveforms
+*.vvp
+*.vcd
+*.hex
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Synthesis intermediate / logs
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

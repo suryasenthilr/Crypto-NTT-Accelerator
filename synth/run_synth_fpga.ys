@@ -1,0 +1,19 @@
+# Yosys FPGA Synthesis Script for PolyFlex-NTT
+# Target: Xilinx 7-Series (Artix-7 / Kintex-7 / Virtex-7)
+
+# Read Design
+read_verilog -sv rtl/twiddle_rom.v
+read_verilog -sv rtl/modular_multiplier.v
+read_verilog -sv rtl/ntt_butterfly_unit.v
+read_verilog -sv rtl/dual_bank_sram.v
+read_verilog -sv rtl/address_generator.v
+read_verilog -sv rtl/polyflex_top.v
+
+# Elaborate Hierarchy
+hierarchy -check -top polyflex_top
+
+# Xilinx Synthesis Mapping
+synth_xilinx -top polyflex_top -family xc7
+
+# Print Resource Utilization Statistics
+stat

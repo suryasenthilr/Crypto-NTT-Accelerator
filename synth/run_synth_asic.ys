@@ -1,0 +1,29 @@
+# Yosys ASIC Synthesis Script for PolyFlex-NTT
+# Target: Nangate 45nm Open Cell Library (Typical Corner)
+
+# Read Design
+read_verilog -sv rtl/twiddle_rom.v
+read_verilog -sv rtl/modular_multiplier.v
+read_verilog -sv rtl/ntt_butterfly_unit.v
+read_verilog -sv rtl/dual_bank_sram.v
+read_verilog -sv rtl/address_generator.v
+read_verilog -sv rtl/polyflex_top.v
+
+# Elaborate Hierarchy
+hierarchy -check -top polyflex_top
+
+# High-Level Synthesis
+synth -top polyflex_top -flatten
+
+# Technology Mapping to Nangate 45nm
+dfflibmap -liberty synth/nangate45.lib
+abc -liberty synth/nangate45.lib
+
+# Clean up
+clean
+
+# Print Area & Gate Count Statistics
+stat -liberty synth/nangate45.lib
+
+# Write Synthesized Gate-Level Netlist
+write_verilog synth/polyflex_top_nangate45_netlist.v
