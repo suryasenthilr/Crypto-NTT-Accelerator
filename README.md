@@ -1,97 +1,195 @@
-# PolyFlex-NTT: Post-Quantum Cryptography Hardware Accelerator
+# PolyFlex-NTT: High-Throughput Post-Quantum Cryptographic IP Core
 
-[![CI Verification](https://img.shields.io/badge/Verification-100%25%20Passed-brightgreen)]()
-[![ASIC Synthesis](https://img.shields.io/badge/ASIC%20Target-Nangate%2045nm-blue)]()
-[![FPGA Target](https://img.shields.io/badge/FPGA-Xilinx%20Artix--7-orange)]()
-[![Standard](https://img.shields.io/badge/Standards-NIST%20FIPS%20203%20%26%20204-purple)]()
+[![Verification](https://img.shields.io/badge/Verification-100%25%20Bit--Exact%20Pass-brightgreen)]()
+[![SoC Interface](https://img.shields.io/badge/Bus%20Interface-AMBA%20AXI4--Lite-blue)]()
+[![ASIC Synthesis](https://img.shields.io/badge/ASIC%20Target-Nangate%2045nm%20(416.7%20MHz)-blueviolet)]()
+[![FPGA Target](https://img.shields.io/badge/FPGA-Xilinx%20Artix--7%20(925%20LUTs)-orange)]()
+[![NIST Standards](https://img.shields.io/badge/Standards-NIST%20FIPS%20203%20%26%20204-purple)]()
 
-PolyFlex-NTT is a novel, high-throughput, conflict-free dual-mode hardware accelerator for the finalized **NIST Post-Quantum Cryptography (PQC)** standards:
-- **NIST FIPS 203: ML-KEM (CRYSTALS-Kyber)** — $q = 3329, n = 256$
-- **NIST FIPS 204: ML-DSA (CRYSTALS-Dilithium)** — $q = 8380417, n = 256$
+**PolyFlex-NTT** is a production-grade, synthesizable cryptographic hardware accelerator IP core designed for post-quantum security in modern SoCs. It implements unified polynomial multiplication for the finalized National Institute of Standards and Technology (NIST) Post-Quantum Cryptography (PQC) standards:
+- **NIST FIPS 203: ML-KEM (CRYSTALS-Kyber)** — Key Encapsulation Mechanism ($q = 3329, n = 256$)
+- **NIST FIPS 204: ML-DSA (CRYSTALS-Dilithium)** — Digital Signature Standard ($q = 8380417, n = 256$)
 
----
-
-## 🌟 Key Research Innovations & Contributions
-
-1. **Conflict-Free Parity-Based Address Generation (CF-DAG)**:
-   - Formulates an in-place XOR-parity mapping $\mathcal{B}(i) = \bigoplus_{b=0}^{7} i_b$ that mathematically guarantees zero bank collisions across all 8 transform stages with zero lookup table overhead and zero pipeline stalls.
-2. **Unified Cooley-Tukey (CT) and Gentleman-Sande (GS) Butterfly**:
-   - 100% datapath reuse for both Forward NTT and Inverse INTT with a continuous throughput of **1 butterfly operation per clock cycle**.
-3. **Reconfigurable Dual-Mode Constant-Time Modular Arithmetic Unit (R-MAU)**:
-   - Supports 23-bit Solinas reduction for ML-DSA and 12-bit Montgomery reduction for ML-KEM in constant time, eliminating timing side-channel leakage.
-4. **Silicon-Verified Performance**:
-   - **33.2% faster** than state-of-the-art dual-mode accelerators (IEEE TVLSI 2024).
-   - **57.5% fewer FPGA slice LUTs** (only 925 LUTs on Artix-7).
+The core features an industry-standard **AMBA AXI4-Lite slave interface** with memory-mapped Control & Status Registers (CSRs), hardware interrupt signaling (`irq`), and real-time cycle latency measurement.
 
 ---
 
-## 📁 Repository Directory Structure
+## 1. Silicon Architecture & System Diagram
 
 ```
-TRY-VLSI/
+                              polyflex_axi_wrapper (Top IP Core)
+  ┌─────────────────────────────────────────────────────────────────────────────────────────┐
+  │                                                                                         │
+  │   AMBA AXI4-Lite Bus                                                                    │
+  │   [AW, W, B, AR, R] ────────┐                                                           │
+  │                             ▼                                                           │
+  │                  ┌────────────────────┐                                                 │
+  │                  │   AXI Controller   ├───────► Hardware IRQ                            │
+  │                  │   & CSR Decoder    │                                                 │
+  │                  └────────┬───────────┘                                                 │
+  │                           │                                                             │
+  │                           │ (Host WE, Addr, WData, RData)                               │
+  │                           ▼                                                             │
+  │                  ┌──────────────────┐                                                   │
+  │                  │  Dual-Bank SRAM  │◄────────────────────────┐                         │
+  │                  │  Bank 0: 128x24  │                         │ (Writeback: 5-cycle lag)│
+  │                  │  Bank 1: 128x24  │                         │                         │
+  │                  └────────┬─────────┘                         │                         │
+  │                           │ (rdata0, rdata1)                  │                         │
+  │                           ▼                                   │                         │
+  │                  ┌──────────────────┐                         │                         │
+  │  Canonical       │ Unified CT / GS  ├─────────────────────────┘                         │
+  │  Twiddle ROM ───►│  Butterfly Unit  │ (Throughput: 1 butterfly / clock cycle)           │
+  │                  └────────▲─────────┘                                                   │
+  │                           │                                                             │
+  │                  ┌────────┴─────────┐                                                   │
+  │                  │  Conflict-Free   │                                                   │
+  │                  │  Address Gen     │                                                   │
+  │                  │ (Parity + Split) │                                                   │
+  │                  └──────────────────┘                                                   │
+  │                                                                                         │
+  └─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Key Microarchitectural Highlights
+
+### A. Zero-Stall Conflict-Free Memory Architecture (CF-DAG)
+- High-throughput NTT architectures require reading two operands $(u, v)$ and writing back two operands $(u', v')$ simultaneously. Across variable stride stages ($128, 64, \dots, 1$), naive mappings cause severe memory bank conflicts.
+- PolyFlex-NTT implements a closed-form XOR-parity bank selection mapping:
+  $$\text{Bank}(i) = \bigoplus_{b=0}^{7} i_b \in \{0, 1\}, \quad \text{Address}(i) = i \gg 1$$
+- For every stage of both Forward NTT (Cooley-Tukey) and Inverse INTT (Gentleman-Sande), butterfly pairs $(u, v)$ differ by exactly one bit. Thus, $\text{Bank}(u) \neq \text{Bank}(v)$ is guaranteed across all stages without lookup tables, achieving **100% butterfly efficiency with zero pipeline bubbles**.
+
+### B. Unified Cooley-Tukey / Gentleman-Sande Butterfly
+- Forward NTT requires modular multiplication before addition/subtraction ($u \pm \omega \cdot v$).
+- Inverse INTT requires addition/subtraction before modular multiplication ($u+v$, $(v-u) \cdot \omega$).
+- PolyFlex-NTT unifies both modes into a single 3-stage pipelined datapath with **100% logic reuse**, eliminating redundant multipliers.
+
+### C. Reconfigurable Constant-Time Multiplier (R-MAU)
+- **ML-DSA Mode ($q = 8380417 = 2^{23} - 2^{13} + 1$)**: Exploits the Solinas prime form to reduce 46-bit products via shifts and additions:
+  $$P \equiv P_0 + (P_1 \ll 13) - P_1 \pmod q$$
+  Because $(P_1 \ll 13) - P_1 = 8191 \cdot P_1 \ge 0$, intermediate arithmetic is strictly non-negative, preventing signed overflow vulnerabilities.
+- **ML-KEM Mode ($q = 3329$)**: Implements 12-bit Montgomery reduction ($R = 2^{16}$, $q' = 3327$) with pre-scaled Montgomery twiddle factors, producing standard-domain output directly without post-scaling.
+- **Side-Channel Immunity**: Fixed 2-cycle execution latency guarantees resistance against timing side-channel attacks.
+
+---
+
+## 3. AXI4-Lite Register Map & CSR Specification
+
+The IP core memory map spans a 4KB address aperture (`0x000` to `0xFFF`):
+
+| Address Offset | Register Name | Type | Reset Value | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `0x000` | `REG_CONTROL` | R/W | `0x00000000` | Bit 0: START (self-clearing)<br>Bit 1: SOFT_RESET<br>Bit 2: MODE (0: Dilithium, 1: Kyber)<br>Bit 3: IS_GS (0: Forward NTT, 1: Inverse INTT) |
+| `0x004` | `REG_STATUS` | R/W | `0x00000000` | Bit 0: BUSY (RO)<br>Bit 1: DONE (W1C)<br>Bit 2: IRQ_ENABLE (R/W) |
+| `0x008` | `REG_PERF_CYCLES`| RO | `0x00000000` | 32-bit hardware execution cycle counter |
+| `0x00C` | `REG_IP_VERSION` | RO | `0x50514331` | IP Core Identification Signature (`"PQC1"`) |
+| `0x100 - 0x4FC` | `COEFF_WINDOW` | R/W | `0x00000000` | 256-word MMIO coefficient buffer (CPU / DMA access) |
+
+---
+
+## 4. Physical Design & Synthesis Benchmarks
+
+### A. ASIC Standard-Cell Synthesis (Nangate 45nm Open Cell Library)
+Synthesized with **Yosys Open Synthesis Suite** targeting the standard academic **Nangate 45nm Library** ($V_{DD} = 1.1\text{ V}, T = 25^\circ\text{C}$):
+
+| Metric | Measured Value | Analysis |
+| :--- | :--- | :--- |
+| **Total Standard Cells** | **29,949 cells** | Full gate-level implementation |
+| **Total Silicon Area** | **$60,286.77\ \mu m^2$** | $0.0603\text{ mm}^2$ chip area |
+| **Core Logic Area** | **$30,251.38\ \mu m^2$** | **37,909 Gate Equivalents (NAND2-X1)** |
+| **Sequential Flip-Flop Area**| **$30,035.39\ \mu m^2$** | 6,578 Flip-Flops (all RAM & pipeline regs) |
+| **Maximum Operating Frequency**| **416.7 MHz** | Critical path period $T_{clk} = 2.40\text{ ns}$ |
+
+### B. FPGA Resource Utilization (Xilinx Artix-7 `xc7a100t`)
+Synthesized via `synth_xilinx -family xc7`:
+
+| Resource Type | Used | Available on Artix-7 | Utilization (%) |
+| :--- | :--- | :--- | :--- |
+| **Slice LUTs** | **925** | 63,400 | **1.46%** |
+| **Slice Registers (FFs)**| **388** | 126,800 | **0.31%** |
+| **Block RAM (`RAMB18E1`)**| **2** | 270 | **0.74%** |
+| **DSP Slices (`DSP48E1`)**| **5** | 240 | **2.08%** |
+| **Maximum Frequency ($f_{max}$)**| **245.5 MHz** | — | — |
+
+---
+
+## 5. Comparative Performance vs. State-of-the-Art
+
+| Design | Target Device | Algorithm Support | Slice LUTs | Slice FFs | DSP Slices | Dilithium Latency | Kyber Latency | Memory Stalls |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **IEEE TCAS-I 2023** | Artix-7 | Kyber only | 1,420 | 680 | 4 | N/A | 1,280 cycles | Stalls occur |
+| **IEEE TVLSI 2024** | Artix-7 | Kyber & Dilithium | 2,180 | 890 | 8 | 1,540 cycles | 1,344 cycles | Stalls occur |
+| **IEEE TCAS-II 2024** | Artix-7 | Dilithium only | 1,350 | 520 | 6 | 1,280 cycles | N/A | Stalls occur |
+| **PolyFlex-NTT (This Work)**| Artix-7 | **Dual-Mode (FIPS 203/204)**| **925** | **388** | **5** | **1,029 cycles** | **901 cycles** | **0 (Zero Stalls)** |
+| **Improvement vs TVLSI '24**| — | — | **-57.5%** | **-56.4%** | **-37.5%** | **33.2% faster** | **33.0% faster**| **100% Duty Cycle**|
+
+---
+
+## 6. Project Directory Layout
+
+```
+polyflex-ntt/
 ├── docs/
-│   ├── IEEE_PAPER_MANUSCRIPT.md     # Full camera-ready IEEE TCAS-II format research paper
-│   ├── ARCHITECTURE.md              # Detailed microarchitectural specification
-│   └── MATHEMATICAL_FOUNDATIONS.md  # Formal mathematical proofs of conflict-freedom
+│   ├── ARCHITECTURE.md              # Detailed AXI memory map & datapath spec
+│   └── MATHEMATICAL_FOUNDATIONS.md  # Ring algebra and parity mapping proofs
 ├── rtl/
-│   ├── polyflex_top.v               # Top-level accelerator module with host interface
-│   ├── ntt_butterfly_unit.v         # Unified CT / GS pipelined butterfly unit
-│   ├── modular_multiplier.v         # Reconfigurable 24-bit / 12-bit constant-time multiplier
-│   ├── address_generator.v          # Conflict-free parity in-place address generator
+│   ├── polyflex_axi_wrapper.v       # Production AXI4-Lite SoC Integration Wrapper
+│   ├── polyflex_top.v               # Top-level accelerator core
+│   ├── ntt_butterfly_unit.v         # Unified Cooley-Tukey / Gentleman-Sande butterfly
+│   ├── modular_multiplier.v         # 2-cycle constant-time Solinas-Montgomery multiplier
+│   ├── address_generator.v          # Conflict-free dynamic bit-insertion address generator
 │   ├── twiddle_rom.v                # Canonical bit-reversed twiddle factor ROM
 │   └── dual_bank_sram.v             # Dual-bank synchronous coefficient memory
 ├── sim/
-│   ├── golden_model.py              # Bit-exact Python reference model (FIPS 203 & 204)
+│   ├── golden_model.py              # Bit-exact reference model for NIST FIPS 203 & 204
 │   ├── cycle_accurate_sim.py        # Cycle-accurate architectural simulator
-│   ├── test_accelerator.py          # Automated hardware-software co-simulation testbench
-│   ├── tb_polyflex_top.v            # Top-level Verilog testbench
-│   ├── tb_full_pqc.v                # File-driven batch verification testbench
-│   └── twiddle_gen.py               # Twiddle factor precomputation & ROM generator
+│   ├── test_accelerator.py          # Automated co-simulation verification suite
+│   ├── tb_axi_wrapper.v             # Full AXI4-Lite bus transaction & MMIO testbench
+│   ├── tb_polyflex_top.v            # Top-level standalone core testbench
+│   └── twiddle_gen.py               # Precomputation script for twiddle factor ROM
 ├── synth/
 │   ├── run_synth_asic.ys            # Yosys ASIC synthesis script (Nangate 45nm)
-│   ├── run_synth_fpga.ys            # Yosys FPGA synthesis script (Xilinx 7-series)
-│   ├── nangate45.lib                # Nangate 45nm standard cell library
-│   ├── synth_asic.log               # Complete ASIC synthesis log & cell statistics
-│   └── synth_fpga.log               # Complete FPGA synthesis log & resource utilization
+│   ├── run_synth_fpga.ys            # Yosys FPGA synthesis script (Xilinx 7-Series)
+│   ├── nangate45.lib                # Nangate 45nm Open Cell Library
+│   ├── polyflex_top_nangate45_netlist.v # Synthesized gate-level netlist
+│   ├── synth_asic.log               # Complete ASIC synthesis log and cell report
+│   └── synth_fpga.log               # Complete FPGA synthesis log and resource utilization
 └── benchmarks/
-    └── comparative_analysis.py      # Benchmark comparison vs IEEE TVLSI / TCAS SOTA
+    └── comparative_analysis.py      # Automated benchmark comparisons vs SOTA
 ```
 
 ---
 
-## 🚀 Quickstart & Verification
+## 7. Verification & Reproduction Instructions
 
-### 1. Run Bit-Exact Verification Suite
-To execute the automated co-simulation verifying all 4 transform modes against NIST golden models:
+### Prerequisites
+- Python 3.8+ (NumPy)
+- Icarus Verilog (`iverilog`) and Yosys (available via OSS CAD Suite or package managers)
+
+### Step 1: Run Full AXI4-Lite SoC Interface Test
+```powershell
+cmd /c "call C:\Users\surya\.oss-cad-suite\oss-cad-suite\environment.bat && iverilog -g2012 -o sim\tb_axi_wrapper.vvp rtl\twiddle_rom.v rtl\modular_multiplier.v rtl\ntt_butterfly_unit.v rtl\dual_bank_sram.v rtl\address_generator.v rtl\polyflex_top.v rtl\polyflex_axi_wrapper.v sim\tb_axi_wrapper.v && vvp sim\tb_axi_wrapper.vvp"
+```
+
+### Step 2: Run Automated Mathematical Co-Simulation Suite
+Verifies all 4 transform combinations on random polynomials against NIST golden models:
 ```powershell
 python sim/test_accelerator.py
 ```
 
-### 2. Run Comparative SOTA Benchmarking
+### Step 3: Run SOTA Benchmark Comparison
 ```powershell
 python benchmarks/comparative_analysis.py
 ```
 
-### 3. Re-run ASIC Synthesis (Nangate 45nm)
+### Step 4: Re-Synthesize to ASIC (Nangate 45nm)
 ```powershell
 cmd /c "call C:\Users\surya\.oss-cad-suite\oss-cad-suite\environment.bat && yosys -s synth\run_synth_asic.ys"
 ```
 
-### 4. Re-run FPGA Synthesis (Xilinx 7-Series)
+### Step 5: Re-Synthesize to FPGA (Xilinx Artix-7)
 ```powershell
 cmd /c "call C:\Users\surya\.oss-cad-suite\oss-cad-suite\environment.bat && yosys -s synth\run_synth_fpga.ys"
 ```
-
----
-
-## 📊 Summary of Synthesis Results
-
-| Metric | Nangate 45nm ASIC | Xilinx Artix-7 FPGA |
-| :--- | :--- | :--- |
-| **Logic Cells / LUTs** | 29,949 cells ($30,251\ \mu m^2$ core) | 925 Slice LUTs |
-| **Registers / FFs** | 6,578 Flip-Flops | 388 Slice Registers |
-| **Memory Blocks** | Dual-Bank SRAM ($30,035\ \mu m^2$) | 2 Block RAMs (`RAMB18E1`) |
-| **Multipliers / DSPs** | Synthesized Standard Cell | 5 DSP Slices (`DSP48E1`) |
-| **Max Clock Frequency** | **416.7 MHz** | **245.5 MHz** |
-| **Transform Latency** | **1,029 cycles** (ML-DSA) / **901 cycles** (ML-KEM) | **1,029 cycles** (ML-DSA) / **901 cycles** (ML-KEM) |
-| **Pipeline Efficiency** | **100% (Zero stalls, zero bubbles)** | **100% (Zero stalls, zero bubbles)** |
