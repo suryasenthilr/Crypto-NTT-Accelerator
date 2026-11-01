@@ -150,9 +150,23 @@ class PolyFlexEDAApp(tk.Tk):
         )
         btn_fpga.pack(fill=tk.X, pady=4)
 
-        # Section 4: Utilities
-        lbl_u = ttk.Label(parent, text="4. Quick Actions", style="Section.TLabel")
+        # Section 4: Code & RTL Editors
+        lbl_u = ttk.Label(parent, text="4. Verilog Code & RTL", style="Section.TLabel")
         lbl_u.pack(anchor=tk.W, pady=(16, 6))
+
+        btn_vscode = ttk.Button(
+            parent,
+            text="📝 Open in VS Code (Verilog IDE)",
+            command=self._open_vscode
+        )
+        btn_vscode.pack(fill=tk.X, pady=4)
+
+        btn_folder = ttk.Button(
+            parent,
+            text="📁 Open RTL Folder (Explorer)",
+            command=self._open_rtl_folder
+        )
+        btn_folder.pack(fill=tk.X, pady=4)
 
         btn_clear = ttk.Button(
             parent,
@@ -293,6 +307,21 @@ class PolyFlexEDAApp(tk.Tk):
             cmd = f'call "{ENV_BAT}" && yosys -p "read_verilog -sv rtl/*.v; synth_xilinx -family xc7 -top polyflex_top; stat"'
             self._execute_command(cmd, "FPGA Artix-7 Synthesis")
         threading.Thread(target=task, daemon=True).start()
+
+    def _open_vscode(self):
+        try:
+            subprocess.Popen(["code", ROOT_DIR], shell=True)
+            self.log(f"[OPEN] Opened project in Visual Studio Code: {ROOT_DIR}")
+        except Exception as e:
+            self.log(f"[ERROR] Could not open VS Code: {e}")
+
+    def _open_rtl_folder(self):
+        rtl_dir = os.path.join(ROOT_DIR, "rtl")
+        try:
+            os.startfile(rtl_dir)
+            self.log(f"[OPEN] Opened RTL folder in File Explorer: {rtl_dir}")
+        except Exception as e:
+            self.log(f"[ERROR] Could not open folder: {e}")
 
 if __name__ == "__main__":
     app = PolyFlexEDAApp()
