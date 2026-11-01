@@ -1,11 +1,5 @@
 # PolyFlex-NTT: High-Throughput Post-Quantum Cryptographic IP Core
 
-[![Verification](https://img.shields.io/badge/Verification-100%25%20Bit--Exact%20Pass-brightgreen)]()
-[![SoC Interface](https://img.shields.io/badge/Bus%20Interface-AMBA%20AXI4--Lite-blue)]()
-[![ASIC Synthesis](https://img.shields.io/badge/ASIC%20Target-Nangate%2045nm%20(416.7%20MHz)-blueviolet)]()
-[![FPGA Target](https://img.shields.io/badge/FPGA-Xilinx%20Artix--7%20(925%20LUTs)-orange)]()
-[![NIST Standards](https://img.shields.io/badge/Standards-NIST%20FIPS%20203%20%26%20204-purple)]()
-
 **PolyFlex-NTT** is a production-grade, synthesizable cryptographic hardware accelerator IP core designed for post-quantum security in modern SoCs. It implements unified polynomial multiplication for the finalized National Institute of Standards and Technology (NIST) Post-Quantum Cryptography (PQC) standards:
 - **NIST FIPS 203: ML-KEM (CRYSTALS-Kyber)** — Key Encapsulation Mechanism ($q = 3329, n = 256$)
 - **NIST FIPS 204: ML-DSA (CRYSTALS-Dilithium)** — Digital Signature Standard ($q = 8380417, n = 256$)
@@ -156,8 +150,11 @@ polyflex-ntt/
 │   ├── polyflex_top_nangate45_netlist.v # Synthesized gate-level netlist
 │   ├── synth_asic.log               # Complete ASIC synthesis log and cell report
 │   └── synth_fpga.log               # Complete FPGA synthesis log and resource utilization
-└── benchmarks/
-    └── comparative_analysis.py      # Automated benchmark comparisons vs SOTA
+├── benchmarks/
+│   └── comparative_analysis.py      # Automated benchmark comparisons vs SOTA
+├── gui_app.py                       # Graphical EDA Workbench (Tkinter desktop app)
+├── Launch_EDA_Workbench.bat         # 1-click launcher for EDA Workbench
+└── view_waves.bat                   # 1-click launcher for GTKWave waveform viewer
 ```
 
 ---
