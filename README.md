@@ -1,10 +1,22 @@
-# PolyFlex-NTT: High-Throughput Post-Quantum Cryptographic IP Core
+# PolyFlex-NTT: Post-Quantum Cryptography Hardware Accelerator (VLSI IP Core)
 
-**PolyFlex-NTT** is a production-grade, synthesizable cryptographic hardware accelerator IP core designed for post-quantum security in modern SoCs. It implements unified polynomial multiplication for the finalized National Institute of Standards and Technology (NIST) Post-Quantum Cryptography (PQC) standards:
-- **NIST FIPS 203: ML-KEM (CRYSTALS-Kyber)** — Key Encapsulation Mechanism ($q = 3329, n = 256$)
-- **NIST FIPS 204: ML-DSA (CRYSTALS-Dilithium)** — Digital Signature Standard ($q = 8380417, n = 256$)
+**PolyFlex-NTT** is a digital VLSI hardware accelerator IP core designed to offload post-quantum cryptographic math from an embedded CPU. Written in synthesizable Verilog, the core computes the Number Theoretic Transform (NTT) and Inverse NTT (INTT)—the mathematical backbone of lattice-based cryptography—for both major NIST standards:
+- **ML-KEM (CRYSTALS-Kyber / FIPS 203)** for post-quantum key exchange ($q = 3329, n = 256$)
+- **ML-DSA (CRYSTALS-Dilithium / FIPS 204)** for post-quantum digital signatures ($q = 8380417, n = 256$)
 
-The core features an industry-standard **AMBA AXI4-Lite slave interface** with memory-mapped Control & Status Registers (CSRs), hardware interrupt signaling (`irq`), and real-time cycle latency measurement.
+### Why this hardware is needed
+In post-quantum cryptography, multiplying 256-degree polynomials is the primary computational bottleneck, consuming over 60% of total execution time on embedded microcontrollers (such as RISC-V or ARM Cortex-M). While the Number Theoretic Transform (the finite-field analogue of the FFT) reduces multiplication complexity from $O(n^2)$ to $O(n \log n)$, computing NTT in software still requires tens of thousands of CPU cycles.
+
+PolyFlex-NTT moves this entire operation into dedicated hardware. Instead of thousands of CPU cycles, it finishes a full 256-point polynomial transform in **901 clock cycles (Kyber)** and **1,029 clock cycles (Dilithium)** with zero memory wait states.
+
+### How it works as an SoC IP Core
+The design is packaged as an **AMBA AXI4-Lite slave peripheral** that connects directly to an on-chip system bus. A host CPU writes polynomial coefficients into the accelerator's memory-mapped window, writes to the control register to start execution, and can either poll the status register or wait for the hardware interrupt (`irq`) pulse upon completion before reading back the transformed coefficients.
+
+### Key Hardware Architecture
+- **Dual-Standard Reconfigurable Datapath**: Instead of using separate hardware blocks for Kyber (12-bit modulus) and Dilithium (23-bit modulus), both algorithms share a single 3-stage pipelined butterfly unit with 100% logic reuse.
+- **Zero-Stall Dual-Bank SRAM**: Memory collisions are eliminated using an algorithmic XOR-parity mapping ($\text{Bank}(i) = \bigoplus_{b=0}^{7} i_b$), ensuring the butterfly unit reads and writes two coefficients every single clock cycle without pipeline bubbles.
+- **Constant-Time Modular Multiplier**: Incorporates 2-cycle pipelined Solinas reduction (Dilithium) and Montgomery reduction (Kyber). Fixed execution latency guarantees protection against timing side-channel attacks.
+- **Synthesized for ASIC & FPGA**: Target verified using open-source EDA tools to standard academic **Nangate 45nm ASIC** (416.7 MHz, 37.9k Gate Equivalents) and **Xilinx Artix-7 FPGA** (925 LUTs, 5 DSPs).
 
 ---
 
