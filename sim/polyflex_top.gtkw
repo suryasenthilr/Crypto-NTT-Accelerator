@@ -1,0 +1,40 @@
+[*]
+[*] GTKWave Analyzer Configuration File
+[*]
+[dumpfile] "polyflex_top.vcd"
+[savefile] "polyflex_top.gtkw"
+[timestart] 0
+[size] 1400 800
+[pos] -1 -1
+*-marks- 
+[treeopen] tb_polyflex_top.
+[treeopen] tb_polyflex_top.dut.
+[treeopen] tb_polyflex_top.dut.u_addr_gen.
+@28
+tb_polyflex_top.clk
+tb_polyflex_top.rst_n
+tb_polyflex_top.start
+tb_polyflex_top.busy
+tb_polyflex_top.done
+tb_polyflex_top.mode_kyber
+tb_polyflex_top.is_gs
+@22
+tb_polyflex_top.dut.u_addr_gen.stage_cnt[2:0]
+tb_polyflex_top.dut.u_addr_gen.pair_cnt[6:0]
+tb_polyflex_top.dut.bf_u_in[23:0]
+tb_polyflex_top.dut.bf_v_in[23:0]
+tb_polyflex_top.dut.twiddle_data[23:0]
+tb_polyflex_top.dut.bf_u_out[23:0]
+tb_polyflex_top.dut.bf_v_out[23:0]
+@28
+tb_polyflex_top.dut.wen0
+@22
+tb_polyflex_top.dut.waddr0[6:0]
+tb_polyflex_top.dut.wdata0[23:0]
+@28
+tb_polyflex_top.dut.wen1
+@22
+tb_polyflex_top.dut.waddr1[6:0]
+tb_polyflex_top.dut.wdata1[23:0]
+[pattern_trace] 1
+[pattern_trace] 0
