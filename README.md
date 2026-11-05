@@ -1,8 +1,36 @@
 # PolyFlex-NTT: Post-Quantum Cryptography Hardware Accelerator (VLSI IP Core)
 
+[![ASIC Synthesis](https://img.shields.io/badge/ASIC%20Library-Nangate%2045nm-blue)](#)
+[![Physical Design](https://img.shields.io/badge/Physical%20Design-OpenROAD%20P%26R-purple)](#)
+[![Tapeout](https://img.shields.io/badge/Tapeout%20GDSII-31.0%20kCells-success)](#)
+[![FPGA Verified](https://img.shields.io/badge/FPGA-Xilinx%20Artix--7-orange)](#)
+[![NIST Standards](https://img.shields.io/badge/NIST-FIPS%20203%20%26%20204-brightgreen)](#)
+
 **PolyFlex-NTT** is a digital VLSI hardware accelerator IP core designed to offload post-quantum cryptographic math from an embedded CPU. Written in synthesizable Verilog, the core computes the Number Theoretic Transform (NTT) and Inverse NTT (INTT)—the mathematical backbone of lattice-based cryptography—for both major NIST standards:
 - **ML-KEM (CRYSTALS-Kyber / FIPS 203)** for post-quantum key exchange ($q = 3329, n = 256$)
 - **ML-DSA (CRYSTALS-Dilithium / FIPS 204)** for post-quantum digital signatures ($q = 8380417, n = 256$)
+
+---
+
+## 🏛️ Physical Silicon Tapeout & GDSII Signoff (Nangate 45nm)
+
+<p align="center">
+  <img src="docs/polyflex_top_layout.png" alt="PolyFlex-NTT Physical Silicon Layout" width="55%">
+</p>
+<p align="center"><em>Full-Die Tapeout Layout (Rendered via KLayout). PolyFlex-NTT Dual-Mode Post-Quantum Crypto Accelerator Die (30,978 placed cells, 343×343 µm, 282 mW).</em></p>
+
+| Physical Signoff Metric | Value / Metric | Technical Description / Signoff Engine |
+| :--- | :--- | :--- |
+| **Target Technology** | Nangate 45nm Open Cell Library (FreePDK45) | Standard VT, 1.10V, 25°C ($0.798\,\mu m^2$ NAND2_X1) |
+| **Die Dimensions** | **$343.08 \times 343.08\,\mu m$** ($0.118\text{ mm}^2$) | Square layout with peripheral IO rings |
+| **Core Area** | **$108,892.42\,\mu m^2$** | Standard cell core area |
+| **Placed & Legalized Cells** | **30,978 instances (100.00% Legalized)** | Legalized via OpenROAD `DPL` diamond legalizer |
+| **Core Utilization** | **56.7%** ($61,784.62\,\mu m^2$ instance area) | RePlAce analytical global placer |
+| **Clock Tree Synthesis (CTS)**| **6-Level Balanced Tree** | TritonCTS balanced H-tree clustering |
+| **Clock Sinks / Buffers** | 6,716 flip-flops / 827 buffers inserted | `CLKBUF_X1`, `CLKBUF_X2`, `CLKBUF_X3` |
+| **Total Power @ 300MHz** | **282.0 mW** (26.5 mW seq, 251 mW comb, 4.91 mW clock) | OpenSTA Signoff Power Analyzer |
+| **Power Distribution Network** | M1 Rails, M4 Vert (56µm), M7 Horiz (30µm) | Multi-tier low-IR power mesh |
+| **GDSII Tapeout Stream** | [`polyflex_top.gds`](pnr/polyflex_top.gds) (**3.2 MB**) | Merged via KLayout 0.30 stream engine |
 
 ### Why this hardware is needed
 In post-quantum cryptography, multiplying 256-degree polynomials is the primary computational bottleneck, consuming over 60% of total execution time on embedded microcontrollers (such as RISC-V or ARM Cortex-M). While the Number Theoretic Transform (the finite-field analogue of the FFT) reduces multiplication complexity from $O(n^2)$ to $O(n \log n)$, computing NTT in software still requires tens of thousands of CPU cycles.
