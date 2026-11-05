@@ -197,39 +197,11 @@ polyflex-ntt/
 └── view_waves.bat                   # 1-click launcher for GTKWave waveform viewer
 ```
 
----
 
-## 6. Physical Design & GDSII Silicon Signoff
-
-PolyFlex-NTT features a complete physical design place-and-route (P&R) implementation executed via **OpenROAD** and **KLayout** on the **Nangate 45nm Open Cell Library (FreePDK45)**.
-
-| Physical Parameter | Value / Metric | Technical Description |
-| :--- | :--- | :--- |
-| **Target Technology** | Nangate 45nm Open Cell Library | Standard VT, 1.10V, 25°C ($0.798\,\mu m^2$ NAND2_X1) |
-| **Die Dimensions** | $343.08 \times 343.08\,\mu m$ | Square layout with peripheral IO rings |
-| **Total Die Footprint** | $0.118\text{ mm}^2$ | Full taped-out die area |
-| **Core Area** | $108,892.42\,\mu m^2$ | Standard cell core area |
-| **Placed & Legalized Cells** | **30,978 instances** | 100.00% legalized via DPL diamond legalizer |
-| **Core Utilization** | **56.7%** | Instance area: $61,784.62\,\mu m^2$ |
-| **Clock Tree Synthesis (CTS)** | **6-Level Balanced Tree** | TritonCTS balanced H-tree clustering |
-| **Clock Buffers** | 827 buffers inserted | `CLKBUF_X1`, `CLKBUF_X2`, `CLKBUF_X3` |
-| **Clock Sinks** | 6,716 flip-flops | Balanced skew and slew across pipeline registers |
-| **Total Power Consumption** | **282.0 mW** @ 300MHz | Dynamic and static power signoff (OpenSTA) |
-| **Sequential / Dynamic Power** | 26.5 mW (9.4%) | Dual-bank SRAM registers & pipeline flops |
-| **Combinational Power** | 251.0 mW (88.9%) | Pipelined Solinas/Montgomery modular multiplier |
-| **Clock Distribution Power** | 4.91 mW (1.7%) | Clock distribution buffer tree |
-| **Leakage Power** | 1.18 mW (0.4%) | Sub-threshold static leakage |
-| **Power Distribution Network** | M1 Rails, M4 Vert, M7 Horiz | $56\,\mu m$ vertical strap pitch, $30\,\mu m$ horizontal strap pitch |
-| **GDSII Tapeout Stream** | `polyflex_top.gds` (**3.2 MB**) | Merged via KLayout 0.30 stream engine |
-
-<p align="center">
-  <img src="docs/polyflex_top_layout.png" alt="PolyFlex-NTT Physical Silicon Layout" width="55%">
-</p>
-<p align="center"><em>PolyFlex-NTT Dual-Mode Post-Quantum Crypto Core Die Layout (31k cells, 343×343 µm, Nangate 45nm).</em></p>
 
 ---
 
-## 7. Verification & Reproduction Instructions
+## 6. Verification & Reproduction Instructions
 
 ### Quick Start: Graphical Desktop Workbench (GUI)
 You can launch the integrated **PolyFlex-NTT EDA Control Center** by double-clicking [`Launch_EDA_Workbench.bat`](file:///Launch_EDA_Workbench.bat) or running:
