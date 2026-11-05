@@ -3,15 +3,17 @@
 *.vcd
 *.hex
 
+# Physical Design Database (Binary > 100MB)
+*.odb
+pnr/*.odb
+
 # Python
 __pycache__/
 *.py[cod]
-
-# Synthesis intermediate / logs
-*.log
 
 # OS & Editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+netgen
