@@ -1,23 +1,17 @@
-# PolyFlex-NTT: Post-Quantum Cryptography Hardware Accelerator (VLSI IP Core)
+# Crypto-NTT: Post-Quantum Cryptography Hardware Accelerator
 
-[![ASIC Synthesis](https://img.shields.io/badge/ASIC%20Library-Nangate%2045nm-blue)](#)
-[![Physical Design](https://img.shields.io/badge/Physical%20Design-OpenROAD%20P%26R-purple)](#)
-[![Tapeout](https://img.shields.io/badge/Tapeout%20GDSII-31.0%20kCells-success)](#)
-[![FPGA Verified](https://img.shields.io/badge/FPGA-Xilinx%20Artix--7-orange)](#)
-[![NIST Standards](https://img.shields.io/badge/NIST-FIPS%20203%20%26%20204-brightgreen)](#)
-
-**PolyFlex-NTT** is a digital VLSI hardware accelerator IP core designed to offload post-quantum cryptographic math from an embedded CPU. Written in synthesizable Verilog, the core computes the Number Theoretic Transform (NTT) and Inverse NTT (INTT)—the mathematical backbone of lattice-based cryptography—for both major NIST standards:
+This Crypto-NTT core is a digital VLSI hardware accelerator IP core designed to offload post-quantum cryptographic math from an embedded CPU. Written in synthesizable Verilog, the core computes the Number Theoretic Transform (NTT) and Inverse NTT (INTT)—the mathematical backbone of lattice-based cryptography—for both major NIST standards:
 - **ML-KEM (CRYSTALS-Kyber / FIPS 203)** for post-quantum key exchange ($q = 3329, n = 256$)
 - **ML-DSA (CRYSTALS-Dilithium / FIPS 204)** for post-quantum digital signatures ($q = 8380417, n = 256$)
 
 ---
 
-## 🏛️ Physical Silicon Tapeout & GDSII Signoff (Nangate 45nm)
+## Physical Silicon Layout & GDSII (Nangate 45nm)
 
 <p align="center">
-  <img src="docs/polyflex_top_layout.png" alt="PolyFlex-NTT Physical Silicon Layout" width="55%">
+  <img src="docs/polyflex_top_layout.png" alt="Crypto-NTT Physical Silicon Layout" width="55%">
 </p>
-<p align="center"><em>Full-Die Tapeout Layout (Rendered via KLayout). PolyFlex-NTT Dual-Mode Post-Quantum Crypto Accelerator Die (30,978 placed cells, 343×343 µm, 282 mW).</em></p>
+<p align="center"><em>Full-Die Tapeout Layout (Rendered via KLayout). Crypto-NTT Dual-Mode Post-Quantum Crypto Accelerator Die (30,978 placed cells, 343×343 µm, 282 mW).</em></p>
 
 | Physical Signoff Metric | Value / Metric | Technical Description / Signoff Engine |
 | :--- | :--- | :--- |
@@ -35,7 +29,7 @@
 ### Why this hardware is needed
 In post-quantum cryptography, multiplying 256-degree polynomials is the primary computational bottleneck, consuming over 60% of total execution time on embedded microcontrollers (such as RISC-V or ARM Cortex-M). While the Number Theoretic Transform (the finite-field analogue of the FFT) reduces multiplication complexity from $O(n^2)$ to $O(n \log n)$, computing NTT in software still requires tens of thousands of CPU cycles.
 
-PolyFlex-NTT moves this entire operation into dedicated hardware. Instead of thousands of CPU cycles, it finishes a full 256-point polynomial transform in **901 clock cycles (Kyber)** and **1,029 clock cycles (Dilithium)** with zero memory wait states.
+Crypto-NTT moves this entire operation into dedicated hardware. Instead of thousands of CPU cycles, it finishes a full 256-point polynomial transform in **901 clock cycles (Kyber)** and **1,029 clock cycles (Dilithium)** with zero memory wait states.
 
 ### How it works as an SoC IP Core
 The design is packaged as an **AMBA AXI4-Lite slave peripheral** that connects directly to an on-chip system bus. A host CPU writes polynomial coefficients into the accelerator's memory-mapped window, writes to the control register to start execution, and can either poll the status register or wait for the hardware interrupt (`irq`) pulse upon completion before reading back the transformed coefficients.
@@ -91,14 +85,14 @@ The design is packaged as an **AMBA AXI4-Lite slave peripheral** that connects d
 
 ### A. Zero-Stall Conflict-Free Memory Architecture (CF-DAG)
 - High-throughput NTT architectures require reading two operands $(u, v)$ and writing back two operands $(u', v')$ simultaneously. Across variable stride stages ($128, 64, \dots, 1$), naive mappings cause severe memory bank conflicts.
-- PolyFlex-NTT implements a closed-form XOR-parity bank selection mapping:
+- Crypto-NTT implements a closed-form XOR-parity bank selection mapping:
   $$\text{Bank}(i) = \bigoplus_{b=0}^{7} i_b \in \{0, 1\}, \quad \text{Address}(i) = i \gg 1$$
 - For every stage of both Forward NTT (Cooley-Tukey) and Inverse INTT (Gentleman-Sande), butterfly pairs $(u, v)$ differ by exactly one bit. Thus, $\text{Bank}(u) \neq \text{Bank}(v)$ is guaranteed across all stages without lookup tables, achieving **100% butterfly efficiency with zero pipeline bubbles**.
 
 ### B. Unified Cooley-Tukey / Gentleman-Sande Butterfly
 - Forward NTT requires modular multiplication before addition/subtraction ($u \pm \omega \cdot v$).
 - Inverse INTT requires addition/subtraction before modular multiplication ($u+v$, $(v-u) \cdot \omega$).
-- PolyFlex-NTT unifies both modes into a single 3-stage pipelined datapath with **100% logic reuse**, eliminating redundant multipliers.
+- Crypto-NTT unifies both modes into a single 3-stage pipelined datapath with **100% logic reuse**, eliminating redundant multipliers.
 
 ### C. Reconfigurable Constant-Time Multiplier (R-MAU)
 - **ML-DSA Mode ($q = 8380417 = 2^{23} - 2^{13} + 1$)**: Exploits the Solinas prime form to reduce 46-bit products via shifts and additions:
@@ -156,7 +150,7 @@ Synthesized via `synth_xilinx -family xc7`:
 | **IEEE TCAS-I 2023** | Artix-7 | Kyber only | 1,420 | 680 | 4 | N/A | 1,280 cycles | Stalls occur |
 | **IEEE TVLSI 2024** | Artix-7 | Kyber & Dilithium | 2,180 | 890 | 8 | 1,540 cycles | 1,344 cycles | Stalls occur |
 | **IEEE TCAS-II 2024** | Artix-7 | Dilithium only | 1,350 | 520 | 6 | 1,280 cycles | N/A | Stalls occur |
-| **PolyFlex-NTT (This Work)**| Artix-7 | **Dual-Mode (FIPS 203/204)**| **925** | **388** | **5** | **1,029 cycles** | **901 cycles** | **0 (Zero Stalls)** |
+| **Crypto-NTT (This Work)**| Artix-7 | **Dual-Mode (FIPS 203/204)**| **925** | **388** | **5** | **1,029 cycles** | **901 cycles** | **0 (Zero Stalls)** |
 | **Improvement vs TVLSI '24**| — | — | **-57.5%** | **-56.4%** | **-37.5%** | **33.2% faster** | **33.0% faster**| **100% Duty Cycle**|
 
 ---
@@ -164,7 +158,7 @@ Synthesized via `synth_xilinx -family xc7`:
 ## 6. Project Directory Layout
 
 ```
-polyflex-ntt/
+Crypto-NTT-Accelerator/
 ├── docs/
 │   ├── ARCHITECTURE.md              # Detailed AXI memory map & datapath spec
 │   └── MATHEMATICAL_FOUNDATIONS.md  # Ring algebra and parity mapping proofs
@@ -204,7 +198,7 @@ polyflex-ntt/
 ## 6. Verification & Reproduction Instructions
 
 ### Quick Start: Graphical Desktop Workbench (GUI)
-You can launch the integrated **PolyFlex-NTT EDA Control Center** by double-clicking [`Launch_EDA_Workbench.bat`](file:///Launch_EDA_Workbench.bat) or running:
+You can launch the integrated **Crypto-NTT EDA Control Center** by double-clicking [`Launch_EDA_Workbench.bat`](file:///Launch_EDA_Workbench.bat) or running:
 ```cmd
 pythonw gui_app.py
 ```
