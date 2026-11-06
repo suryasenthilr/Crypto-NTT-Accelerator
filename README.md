@@ -9,9 +9,9 @@ This Crypto-NTT core is a digital VLSI hardware accelerator IP core designed to 
 ## Physical Silicon Layout & GDSII (Nangate 45nm)
 
 <p align="center">
-  <img src="docs/polyflex_top_layout.png" alt="Crypto-NTT Physical Silicon Layout" width="55%">
+  <img src="docs/polyflex_top_layout.png?v=2" alt="Crypto-NTT Physical Silicon Layout" width="65%">
 </p>
-<p align="center"><em>Full-Die Tapeout Layout (Rendered via KLayout). Crypto-NTT Dual-Mode Post-Quantum Crypto Accelerator Die (30,978 placed cells, 343×343 µm, 282 mW).</em></p>
+<p align="center"><em>Full-Die Tapeout Layout (Rendered via OpenROAD). Crypto-NTT Dual-Mode Post-Quantum Crypto Accelerator Die (30,978 placed cells, 343×343 µm, 282 mW).</em></p>
 
 | Physical Signoff Metric | Value / Metric | Technical Description / Signoff Engine |
 | :--- | :--- | :--- |
